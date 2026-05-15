@@ -1,4 +1,8 @@
-import Mathlib
+import Mathlib.Tactic.Linarith
+import Mathlib.Data.Matrix.Basic
+import Mathlib.Data.Real.Basic
+import Mathlib.Algebra.Group.Defs
+
 open Nat Real Matrix
 
 variable (n : ℕ)
@@ -50,15 +54,37 @@ lemma NoLoops (i j : (Fin n)) {h : IsSkewSymm' A} : IsConnectedTo A i j → ¬ i
     exact h1 h2
 
 
+lemma DiagEntrysAreZero (i : Fin n) (h : IsSkewSymm' A) : A i i = 0 := by
+    have h1 : A i i = -A i i := h i i
+    linarith
+
+
 /- State the Lemma statement -/
 /- If i->j->k in A, then Aij is a positive mulitple of Ajk -/
-theorem Lemma (i j k : Fin n) (h1 : IsConnectedTo A i j) (h2 : IsConnectedTo A j k) (hh: k ≠ i) :
+theorem AdjacentEdgesPositiveRatio (i j k : Fin n) (h1 : IsConnectedTo A i j) (h2 : IsConnectedTo A j k) (hh: k ≠ i) :
     ∃ m > 0, A i j = m * A j k := by
     -- Unpack the connectedness conditions
     rcases h1 with ⟨hA, h1_1, h1_2⟩
     rcases h2 with ⟨hA, h2_1, h2_2⟩
+    -- A j i ≠ 0 from skew symmetry and h1_1
+    have hAji : A j i ≠ 0 := by
+        have : A i j = - A j i := hA i j
+        rw [this] at h1_1
+        exact neg_ne_zero.mp h1_1
     have h3 : ∃ M : ℕ, A i k + A k j = M * A j i := by
-        sorry
+        let h1_2_k := h1_2 k
+        have hk : k ≠ i ∧ k ≠ j := by
+            have hkj : k ≠ j := by
+                intro hkj
+                rw [hkj] at h2_1
+                exact h2_1 (DiagEntrysAreZero A j hA)
+            exact ⟨hh, hkj⟩
+        let h3:= h1_2_k hk
+        obtain ⟨M, h3⟩ := h3
+        use M
+        rw [← h3]
+        let h4 := div_mul_cancel₀ (A i k + A k j) hAji
+        rw [h4]
     have h4 : ∃ N : ℕ, A j i + A i k = N * A k j := by
         sorry
     have h5 : ∃ (M N : ℕ), A i j = ((N + 1) / (M + 1)) * A j k := by
