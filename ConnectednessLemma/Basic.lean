@@ -14,12 +14,12 @@ def IsSkewSymm' {n : ℕ} (A : Matrix (Fin n) (Fin n) ℝ) : Prop :=
 
 
 /- Define connectedness of vertices -/
-def IsConnectedTo (i j : (Fin n)) : Prop :=
+def IsConnTo (i j : (Fin n)) : Prop :=
   -- Here I add explicitly that A is SkewSymm
   (IsSkewSymm' A) ∧ (A i j ≠ 0) ∧ (∀ k, k ≠ i ∧ k ≠ j → ∃ m : ℕ, (A i k + A k j) / (A j i) = ↑m)
 
 
-lemma Symmetry (i j : Fin n) (h1 : IsConnectedTo A i j) : IsConnectedTo A j i := by
+lemma Symmetry (i j : Fin n) (h1 : IsConnTo A i j) : IsConnTo A j i := by
     -- Unpack the connectedness condition
     rcases h1 with ⟨hA, h1_1, h1_2⟩
     -- Show that A j i is nonzero
@@ -44,7 +44,7 @@ lemma Symmetry (i j : Fin n) (h1 : IsConnectedTo A i j) : IsConnectedTo A j i :=
     exact ⟨hA, hh1, hh2⟩
 
 
-lemma NoLoops (i j : (Fin n)) {h : IsSkewSymm' A} : IsConnectedTo A i j → ¬ i = j := by
+lemma NoLoops (i j : (Fin n)) {h : IsSkewSymm' A} : IsConnTo A i j → ¬ i = j := by
     intro hcon hij
     have h1 : A i i ≠ 0 := by
         simpa [hij] using hcon.right.left
@@ -61,7 +61,7 @@ lemma DiagEntrysAreZero (i : Fin n) (h : IsSkewSymm' A) : A i i = 0 := by
 
 /- State the Lemma statement -/
 /- If i->j->k in A, then Aij is a positive mulitple of Ajk -/
-theorem AdjacentEdgesPositiveRatio (i j k : Fin n) (h1 : IsConnectedTo A i j) (h2 : IsConnectedTo A j k) (hh: k ≠ i) :
+theorem AdjEdgesPosRatio (i j k : Fin n) (h1 : IsConnTo A i j) (h2 : IsConnTo A j k) (hh : k ≠ i) :
     ∃ m > 0, A i j = m * A j k := by
     -- Unpack the connectedness conditions
     rcases h1 with ⟨hA, h1_1, h1_2⟩
@@ -76,6 +76,7 @@ theorem AdjacentEdgesPositiveRatio (i j k : Fin n) (h1 : IsConnectedTo A i j) (h
         have : A j k = - A k j := hA j k
         rw [this] at h2_1
         exact neg_ne_zero.mp h2_1
+    -- Since i->j, we have
     have h3 : ∃ M : ℕ, A i k + A k j = M * A j i := by
         let h1_2_k := h1_2 k
         have hk : k ≠ i ∧ k ≠ j := by
@@ -90,6 +91,7 @@ theorem AdjacentEdgesPositiveRatio (i j k : Fin n) (h1 : IsConnectedTo A i j) (h
         rw [← h3]
         let h4 := div_mul_cancel₀ (A i k + A k j) hAji
         rw [h4]
+    -- Since j->i, we have
     have h4 : ∃ N : ℕ, A j i + A i k = N * A k j := by
         let h2_2_i := h2_2 i
         have hi : i ≠ j ∧ i ≠ k := by
@@ -105,10 +107,32 @@ theorem AdjacentEdgesPositiveRatio (i j k : Fin n) (h1 : IsConnectedTo A i j) (h
         rw [← h4]
         let h5 := div_mul_cancel₀ (A j i + A i k) hAkj
         rw [h5]
-    have h5 : ∃ (M N : ℕ), A i j = ((N + 1) / (M + 1)) * A j k := by
-        sorry
-    rcases h5 with ⟨M, N, h5⟩
-    have h6 : (↑N + 1) / (↑M + 1) > 0 := by
-        sorry
-    use (↑N + 1) / (↑M + 1)
-    exact ⟨h6, h5⟩
+    -- Combine the two equations
+    have h5 : ∃ M N : ℕ, (M + 1) * A i j = (N + 1) * A j k := by
+        obtain ⟨M, h3⟩ := h3
+        obtain ⟨N, h4⟩ := h4
+        use M, N
+        rw [hA i j, hA j k]
+        rw [add_mul, add_mul, one_mul, one_mul, mul_neg, mul_neg, ← h3, ← h4]
+        ring
+    -- Move terms around
+    have h6 : ∃ M N : ℕ, A i j = (N + 1) / (M + 1) * A j k := by
+        obtain ⟨M, N, h5⟩ := h5
+        use M, N
+        have hM : (M + 1) ≠ 0 := by
+            linarith
+        rw [@div_mul_eq_mul_div₀, ←h5, mul_comm, mul_div_cancel_right₀]
+        linarith
+    -- Show that the ratio is positive
+    have h7 : ∃ m > 0, A i j = m * A j k := by
+       obtain ⟨M, N, h6⟩ := h6
+       use (N + 1) / (M + 1)
+       rw [h6]
+       split_ands
+       · have hN1 : N + 1 > 0 := by
+           linarith
+         have hM1 : ↑M + 1 > 0 := by
+           linarith
+         apply div_pos hN1 hM1
+       · rfl
+    exact h7
